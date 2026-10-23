@@ -246,22 +246,6 @@ node scripts/ws-bridge.mjs          # ws://127.0.0.1:8787/ws -> Hideki, via HTTP
 WS_RPC_URL=ws://127.0.0.1:8787/ws npm start
 ```
 
-## X posts
-
-Posts about this build, tagging @DreamDEXSomnia:
-
-<!-- Replace the drafts below with the live post links before submitting. -->
-
-1. *(draft)* "AI agents can talk. Now they can trade. I built an MCP server
-   that lets an agent place real perps orders on @DreamDEXSomnia testnet,
-   with a hard notional cap it can't argue its way past. Repo + demo below."
-2. *(draft)* "The interesting part isn't the agent, it's the guardrails:
-   read-only by default, exchange-side pre-flight checks, exact lot/tick
-   sizing per market. Agent proposes, code disposes. @DreamDEXSomnia"
-3. *(draft)* "Shipped: dreamdex-perps-mcp. Seven tools: markets, account,
-   claim paper USDso, place/cancel/close, all settling on-chain on Somnia
-   testnet. Built for the dreamDEX Perps Builder Bounty. @DreamDEXSomnia"
-
 ## License
 
 MIT
