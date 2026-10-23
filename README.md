@@ -2,10 +2,14 @@
 
 **An MCP server that lets AI agents trade dreamDEX perpetuals.**
 
-Connect any MCP-compatible agent (Claude, Cursor, or your own) to dreamDEX
-perps on the Somnia **Hideki testnet** and it can read markets, inspect a
-portfolio, and place real on-chain orders through plain tool calls. No UI
-required, no clicking, no hand-rolled ABIs.
+Ready configs ship in this repo for the agent harnesses people already
+use: **Claude Code, Claude Desktop, OpenCode, OpenAI Codex, ZCode, and
+Cursor**, plus a generic `mcpServers` template that also fits Windsurf,
+Gemini CLI, Cline, and any other MCP client. Connect one of them to
+dreamDEX perps on the Somnia **Hideki testnet** and the agent can read
+markets, inspect a portfolio, and place real on-chain orders through
+plain tool calls. Per-harness setup is under
+[MCA](#mca-plug-into-the-harness-you-already-use) below.
 
 Built for the **dreamDEX Perps Builder Bounty** (MVP track).
 
@@ -172,8 +176,11 @@ npm run mca -- cursor     # Cursor, Windsurf, Gemini CLI, Cline, generic mcpServ
 ```
 
 Static templates live in [`configs/`](configs/) if you prefer to copy by
-hand. Every variant starts the same stdio server; only the config shape
-differs, because that is the only thing that differs between harnesses.
+hand: `claude.mcp.json`, `opencode.json`, `codex.config.toml`, and
+`zcode.config.json`, with the generic template covering Cursor and the
+other `mcpServers` clients. Every variant starts the same stdio server;
+only the config shape differs, because that is the only thing that
+differs between harnesses.
 
 ### Run with Docker
 
