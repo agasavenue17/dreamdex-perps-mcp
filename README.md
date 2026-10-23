@@ -4,8 +4,8 @@
 
 Connect any MCP-compatible agent (Claude, Cursor, or your own) to dreamDEX
 perps on the Somnia **Hideki testnet** and it can read markets, inspect a
-portfolio, and place real on-chain orders through plain tool calls — no UI,
-no clicking, no hand-rolled ABIs.
+portfolio, and place real on-chain orders through plain tool calls. No UI
+required, no clicking, no hand-rolled ABIs.
 
 Built for the **dreamDEX Perps Builder Bounty** (MVP track).
 
@@ -19,6 +19,65 @@ standard, safe way for an LLM agent to actually *use* the perps book. MCP
 and exposes a small, auditable tool surface with guardrails an agent
 cannot talk its way around.
 
+## An autonomous agent, not another trading bot
+
+Conventional trading bots are automation. A programmer decides the
+strategy in advance, the code repeats it forever, and nothing in the
+system can decide that today is a bad day to trade. Change the behavior
+and you rewrite and redeploy code.
+
+This project is built the other way around. The server ships no strategy
+at all. It gives an AI agent a set of guarded tools, and the agent
+decides: it studies the market, argues both sides of the trade, sizes
+the position, and can walk away. In live sessions with this build, the
+agent's own risk team and portfolio manager have rejected trades that a
+rule-based bot would have taken without a second thought.
+
+Risk routines work the same way. Take-profit and stop-loss watching,
+margin guarding, funding plays: none of these are baked in as fixed code
+paths. They are standing instructions to the agent, changed in plain
+language, and the agent can weigh context a rigid strategy cannot, like
+closing early because funding flipped hard against the position before
+the stop was ever touched.
+
+| | Conventional strategy bot | This project |
+| --- | --- | --- |
+| Who decides | The programmer, months earlier, in code | The agent, per session, from live data |
+| Refusing a trade | Not a concept that exists | The risk team and PM can and do reject |
+| Changing behavior | Edit code, redeploy | Change the instruction |
+| Judgment inputs | One strategy's signals | An analyst team: funding and open interest, technicals, news, sentiment |
+| Risk routines | Hard-coded per strategy | Standing instructions the agent executes and adapts |
+| Interface | CLI, config files, logs | Any MCP client, plus a visual Trading Desk |
+| The signing key | Usually holds the funds it trades | Holds nothing in trading-key mode: trades for your account, cannot withdraw |
+
+## What's inside
+
+**The MCP server.** Seven tools (below) over the official markets SDK:
+markets, account state, voucher claim, and guarded order placement,
+cancellation and closing.
+
+**Trading-key mode.** Link a bot key to your DreamDEX account in the app
+(wallet, Link a bot, Perps), set `OWNER_ADDRESS`, and the server trades
+*for* the account through the pool's `placeOrderFor` entrypoint, the same
+pattern as the official bot kit. Margin locks from the account, fills
+settle to the account, and the key pays STT gas only. The key holds no
+funds and cannot withdraw, and it works with the 1,000 USDso perps credit
+sitting in the account, which can never be transferred to a bot wallet
+because it is perps margin, not spot funds.
+
+**The agent team.** A reference crew that runs on top of the tools: a
+Market Analyst (funding, open interest), a Technical Analyst (candles,
+RSI, MACD), news and sentiment readers, a Bull and a Bear that debate the
+trade in the open, a Trader that posts a sized proposal, a Risk Team
+with three stances (aggressive, neutral, conservative), and a Portfolio
+Manager with the final call.
+
+**The Trading Desk.** A visual front end (`npm run ui`) with a live BTC
+chart and TradingView-style drawing tools, the debate streamed as it
+happens, an order ticket with margin and projected ROE, and a position
+panel whose ROE tracks the live mark tick by tick. Paper mode runs the
+full session on live market data with nothing sent on-chain.
+
 ## Tools
 
 | Tool | Type | What it does |
@@ -31,6 +90,12 @@ cannot talk its way around.
 | `cancel_order` | write | Cancel a resting order by id |
 | `close_position` | write | Flatten a whole position with one opposite IOC order |
 
+In trading-key mode (`OWNER_ADDRESS` set), the write tools act on the
+linked account instead of the key's own account: `place_order` verifies
+the pool's operator grant first, pre-flights against the account's
+margin, and sends `placeOrderFor`; `cancel_order` and `close_position`
+follow the same path.
+
 ## Safety model
 
 An agent with a signing key is a loaded weapon, so the server is built
@@ -42,9 +107,13 @@ defensive by default:
   `MAX_ORDER_NOTIONAL_USD` (default $50). The cap is enforced in code, not
   in a prompt.
 - **Exchange-side pre-flight.** Before sending, each order is checked with
-  the SDK's `getMaxPerpOrderSize` — the same check the dreamDEX app runs —
+  the SDK's `getMaxPerpOrderSize`, the same check the dreamDEX app runs,
   so margin, position caps and voucher allowlists are respected instead of
   discovered via reverts.
+- **A key that holds nothing.** In trading-key mode the signing key is a
+  linked bot key: it can place, cancel and reduce orders for the account
+  and pay gas, and that is all. Funds stay in the account, fills settle
+  to the account, and withdrawal is not something the key can do.
 - **Exact sizing.** Quantities and prices are rounded to the market's own
   `lotSize` / `tickSize`, and per-market decimals (6–24 on the base side!)
   are read from the market row, never assumed.
@@ -79,12 +148,28 @@ node scripts/smoke.mjs
       "env": {
         "PRIVATE_KEY": "0x…your-testnet-key…",
         "TRADING_ENABLED": "true",
-        "MAX_ORDER_NOTIONAL_USD": "50"
+        "MAX_ORDER_NOTIONAL_USD": "50",
+        "OWNER_ADDRESS": "0x…your-dreamdex-account, if the key is a linked bot key…"
       }
     }
   }
 }
 ```
+
+### Run with Docker
+
+```bash
+docker build -t dreamdex-perps-mcp .
+docker run -i --rm \
+  -e PRIVATE_KEY=0x… \
+  -e TRADING_ENABLED=true \
+  -e OWNER_ADDRESS=0x… \
+  dreamdex-perps-mcp
+```
+
+The server speaks MCP over stdio, so run it with `-i`, or point your MCP
+client at the `docker run` command directly. Configuration is environment
+variables only; see `.env.example`.
 
 Then ask your agent things like:
 
@@ -112,8 +197,12 @@ AI agent ──MCP (stdio)──> this server ──> @somnia-chain/markets-sdk 
 
 Reads go through the unified Somnia Markets indexer; writes are signed
 locally and sent straight to the perp pool contracts, where fills settle
-atomically on-chain. Every placement returns the transaction result, so
-an agent's work is verifiable in the
+atomically on-chain. In trading-key mode the writes go to the pool's
+`placeOrderFor` / `cancelOrderFor` entrypoints (the markets SDK has no
+`…For` writes, so those calls are sent with viem, mirroring the official
+bot kit) after a read of the pool's operator registry confirms the
+link. Every placement returns the transaction hash and decoded fills,
+so an agent's work is verifiable in the
 [testnet explorer](https://explorer.testnet.somnia.network/tokyo).
 
 ## Network reference
@@ -145,13 +234,13 @@ Posts about this build, tagging @DreamDEXSomnia:
 <!-- Replace the drafts below with the live post links before submitting. -->
 
 1. *(draft)* "AI agents can talk. Now they can trade. I built an MCP server
-   that lets an agent place real perps orders on @DreamDEXSomnia testnet —
+   that lets an agent place real perps orders on @DreamDEXSomnia testnet,
    with a hard notional cap it can't argue its way past. Repo + demo below."
 2. *(draft)* "The interesting part isn't the agent, it's the guardrails:
    read-only by default, exchange-side pre-flight checks, exact lot/tick
    sizing per market. Agent proposes, code disposes. @DreamDEXSomnia"
-3. *(draft)* "Shipped: dreamdex-perps-mcp. Seven tools — markets, account,
-   claim paper USDso, place/cancel/close — all settling on-chain on Somnia
+3. *(draft)* "Shipped: dreamdex-perps-mcp. Seven tools: markets, account,
+   claim paper USDso, place/cancel/close, all settling on-chain on Somnia
    testnet. Built for the dreamDEX Perps Builder Bounty. @DreamDEXSomnia"
 
 ## License

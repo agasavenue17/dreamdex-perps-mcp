@@ -1,0 +1,10 @@
+.env
+.git
+.github
+node_modules
+dist
+sketches
+ui
+scripts
+*.md
+!README.md
