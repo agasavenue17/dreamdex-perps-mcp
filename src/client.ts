@@ -41,6 +41,14 @@ export function walletAddress(cfg: ServerConfig): string | null {
   return getMarkets(cfg).walletAddress ?? null;
 }
 
+/**
+ * The account perp reads and orders belong to: the OWNER account in
+ * trading-key mode (OWNER_ADDRESS set), otherwise the signer's own.
+ */
+export function effectiveAccount(cfg: ServerConfig): string | null {
+  return cfg.ownerAddress ?? walletAddress(cfg);
+}
+
 /** Find a perp market by base symbol, e.g. "BTC" (case-insensitive). */
 export async function resolveMarket(
   cfg: ServerConfig,

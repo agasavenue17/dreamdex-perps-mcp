@@ -302,7 +302,7 @@ async function sttBalance() {
 async function preflight(market, isBid, priceRaw) {
   try {
     const markets = client.getMarkets(cfg);
-    const account = client.walletAddress(cfg);
+    const account = client.effectiveAccount(cfg);
     if (!account) return { error: "no wallet configured for pre-flight" };
     const max = await markets.client.getMaxPerpOrderSize({
       pool: market.poolAddress,
@@ -310,6 +310,7 @@ async function preflight(market, isBid, priceRaw) {
       account,
       isBid,
       price: priceRaw,
+      ...(cfg.ownerAddress ? { autoPull: false } : {}),
     });
     return {
       priceable: max.priceable,
@@ -559,7 +560,7 @@ function paperPositionView(mark) {
 
 async function livePositionView(mark) {
   try {
-    const account = client.walletAddress(cfg);
+    const account = client.effectiveAccount(cfg);
     if (!account) return null;
     const markets = client.getMarkets(cfg);
     const positions = await markets.client.listPerpPositions(account);

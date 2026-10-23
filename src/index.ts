@@ -14,6 +14,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { Address } from "viem";
 import { z } from "zod";
 import {
+  effectiveAccount,
   getMarkets,
   resolveMarket,
   roundDownToStep,
@@ -22,9 +23,15 @@ import {
   toHuman,
   toJson,
   toRaw,
-  walletAddress,
 } from "./client.js";
 import { assertTradingAllowed, loadConfig } from "./config.js";
+import {
+  cancelFor,
+  getTradingKey,
+  linkProblem,
+  linkStatus,
+  placeFor,
+} from "./tradingKey.js";
 
 const cfg = loadConfig();
 
@@ -97,10 +104,10 @@ server.registerTool(
   },
   async ({ address }) => {
     try {
-      const account = address ?? walletAddress(cfg);
+      const account = address ?? effectiveAccount(cfg);
       if (!account) {
         throw new Error(
-          "No address given and no PRIVATE_KEY configured, so there is no default wallet.",
+          "No address given and neither OWNER_ADDRESS nor PRIVATE_KEY is configured, so there is no default account.",
         );
       }
       const markets = getMarkets(cfg);
@@ -218,10 +225,22 @@ server.registerTool(
     try {
       assertTradingAllowed(cfg);
       const markets = getMarkets(cfg);
-      const account = markets.walletAddress;
-      if (!account) throw new Error("SDK returned no wallet address.");
+      const account = effectiveAccount(cfg);
+      if (!account) throw new Error("No effective account resolved.");
+      const tradingKey = getTradingKey(cfg);
       const market = await resolveMarket(cfg, symbol);
       const isBid = side === "long";
+
+      // Trading-key mode: the pool itself must have granted this key the
+      // place selector for the owner on this market, or every order reverts.
+      if (tradingKey) {
+        const status = await linkStatus(
+          tradingKey,
+          market.poolAddress as Address,
+        );
+        const problem = linkProblem(status, market.baseSymbol ?? symbol);
+        if (problem) throw new Error(problem);
+      }
 
       // Quantity: human -> raw, rounded DOWN to the market's lot size.
       const lot = BigInt(market.lotSize);
@@ -275,13 +294,15 @@ server.registerTool(
       }
 
       // Pre-flight against the account's real limits (margin, caps, voucher
-      // allowlist) — the same check the dreamDEX app performs.
+      // allowlist) — the same check the dreamDEX app performs. A trading key
+      // never gets autoPull: only an order its owner sends can pull funds.
       const max = await markets.client.getMaxPerpOrderSize({
         pool: market.poolAddress,
         marginBank: market.marginBank,
-        account,
+        account: account as Address,
         isBid,
         price: priceRaw,
+        ...(tradingKey ? { autoPull: false } : {}),
       });
       if (!max.priceable) {
         throw new Error(
@@ -294,6 +315,21 @@ server.registerTool(
         );
       }
 
+      if (tradingKey) {
+        const placed = await placeFor(tradingKey, {
+          pool: market.poolAddress as Address,
+          isBid,
+          price: priceRaw,
+          quantity: qtyRaw,
+          orderType,
+        });
+        return ok(
+          `Order placed FOR account ${account} on ${market.baseSymbol} (${side}, ${type}): ` +
+            `${toHuman(qtyRaw, market.baseDecimals)} @ ${toHuman(priceRaw, market.quoteDecimals)} USD. ` +
+            `Filled ${toHuman(placed.filledQuantity, market.baseDecimals)} ${market.baseSymbol} in ${placed.fillsCount} fill(s). ` +
+            `Order id: ${placed.orderId?.toString() ?? "(none, fully filled)"}. Tx: ${placed.hash}`,
+        );
+      }
       const result = await markets.trader.placePerpOrder({
         pool: market.poolAddress,
         isBid,
@@ -326,6 +362,17 @@ server.registerTool(
     try {
       assertTradingAllowed(cfg);
       const market = await resolveMarket(cfg, symbol);
+      const tradingKey = getTradingKey(cfg);
+      if (tradingKey) {
+        const hash = await cancelFor(
+          tradingKey,
+          market.poolAddress as Address,
+          BigInt(orderId),
+        );
+        return ok(
+          `Cancel sent FOR the owner account for order ${orderId}. Tx: ${hash}`,
+        );
+      }
       const result = await getMarkets(cfg).trader.cancelOrder({
         pool: market.poolAddress,
         orderId,
@@ -350,8 +397,9 @@ server.registerTool(
     try {
       assertTradingAllowed(cfg);
       const markets = getMarkets(cfg);
-      const account = markets.walletAddress;
-      if (!account) throw new Error("SDK returned no wallet address.");
+      const account = effectiveAccount(cfg);
+      if (!account) throw new Error("No effective account resolved.");
+      const tradingKey = getTradingKey(cfg);
       const market = await resolveMarket(cfg, symbol);
       const positions = await markets.client.listPerpPositions(account);
       const position = positions.find(
@@ -377,6 +425,19 @@ server.registerTool(
       const priceRaw = isBid
         ? roundDownToStep(scaled, tick)
         : roundUpToStep(scaled, tick);
+      if (tradingKey) {
+        const placed = await placeFor(tradingKey, {
+          pool: market.poolAddress as Address,
+          isBid,
+          price: priceRaw,
+          quantity: qtyRaw,
+          orderType: 2,
+        });
+        return ok(
+          `Close order sent FOR account ${account} for ${market.baseSymbol} position of ${toHuman(size, market.baseDecimals)}. ` +
+            `Filled ${toHuman(placed.filledQuantity, market.baseDecimals)}. Tx: ${placed.hash}`,
+        );
+      }
       const result = await markets.trader.placePerpOrder({
         pool: market.poolAddress,
         isBid,
