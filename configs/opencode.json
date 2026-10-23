@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "dreamdex-perps": {
+      "type": "local",
+      "command": ["node", "/path/to/dreamdex-perps-mcp/dist/index.js"],
+      "enabled": true,
+      "environment": {
+        "PRIVATE_KEY": "0x_your_bot_key",
+        "TRADING_ENABLED": "true",
+        "OWNER_ADDRESS": "0x_your_dreamdex_account",
+        "MAX_ORDER_NOTIONAL_USD": "50"
+      }
+    }
+  }
+}

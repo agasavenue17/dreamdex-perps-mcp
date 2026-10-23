@@ -1,0 +1,10 @@
+# Append to ~/.codex/config.toml (or run: node scripts/mca.mjs codex)
+[mcp_servers.dreamdex-perps]
+command = "node"
+args = ["/path/to/dreamdex-perps-mcp/dist/index.js"]
+
+[mcp_servers.dreamdex-perps.env]
+PRIVATE_KEY = "0x_your_bot_key"
+TRADING_ENABLED = "true"
+OWNER_ADDRESS = "0x_your_dreamdex_account"
+MAX_ORDER_NOTIONAL_USD = "50"

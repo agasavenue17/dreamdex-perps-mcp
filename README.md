@@ -156,6 +156,25 @@ node scripts/smoke.mjs
 }
 ```
 
+### MCA: plug into the harness you already use
+
+People do not need another app to try this. They need it inside the
+agent harness they already open every day. MCA ships a ready config for
+each of the popular ones, with the path to this checkout filled in for
+you:
+
+```bash
+npm run mca -- claude     # Claude Code and Claude Desktop
+npm run mca -- opencode   # OpenCode (opencode.json)
+npm run mca -- codex      # OpenAI Codex (~/.codex/config.toml)
+npm run mca -- zcode      # ZCode (~/.zcode/cli/config.json)
+npm run mca -- cursor     # Cursor, Windsurf, Gemini CLI, Cline, generic mcpServers clients
+```
+
+Static templates live in [`configs/`](configs/) if you prefer to copy by
+hand. Every variant starts the same stdio server; only the config shape
+differs, because that is the only thing that differs between harnesses.
+
 ### Run with Docker
 
 ```bash
