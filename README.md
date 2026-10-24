@@ -54,6 +54,28 @@ the stop was ever touched.
 | Interface | CLI, config files, logs | Any MCP client, plus a visual Trading Desk |
 | The signing key | Usually holds the funds it trades | Holds nothing in trading-key mode: trades for your account, cannot withdraw |
 
+## Make it yours
+
+Nothing about how this trades is fixed. The tools are the floor, not the
+ceiling, and the agent executing for you can be shaped around the way you
+already trade:
+
+- **Your own data.** Point it at extra sources beyond the built-in feeds:
+  your own market data, a private feed you subscribe to, notes and levels
+  you track yourself. If the agent can read it, it can weigh it.
+- **Your behavior.** Entry habits, timeframes, the setups you trust and
+  the ones you refuse. Describe them once, in plain language, and they
+  become the standing brief the agent works from.
+- **Your risk rules.** Position sizes, daily loss limits, when to sit out
+  entirely. The hard caps in the server still apply; your rules sit on
+  top and can only make it stricter.
+- **Your style.** Scalper, swing trader, funding farmer, or someone who
+  trades two hours a day. The executor is the same; the style running it
+  is yours.
+
+That is the point of putting an agent in the executor seat instead of a
+fixed strategy: the system adapts to the trader, not the other way around.
+
 ## What's inside
 
 **The MCP server.** Seven tools (below) over the official markets SDK:
