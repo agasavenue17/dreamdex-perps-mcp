@@ -275,6 +275,17 @@ node scripts/ws-bridge.mjs          # ws://127.0.0.1:8787/ws -> Hideki, via HTTP
 WS_RPC_URL=ws://127.0.0.1:8787/ws npm start
 ```
 
+## X posts
+
+Posts about this build, tagging @DreamDEXSomnia:
+
+1. Live demo, 2026-10-26: an agent debates Bull vs Bear, the Risk Team
+   approves 3x, and a real SHORT 0.0005 BTC order settles on-chain on
+   Hideki testnet, under the $50 cap, with no voucher claim.
+   Tx: `0xd258b63f2530ee6b15507c1af5c12a1afb38e795de9e5056b089f0403a8e813f`.
+   Video: `sketches/screenshots/demo-agent-ui-live-2026-10-26.mp4`.
+   https://x.com/agasavenue17/status/2114585546026819596
+
 ## License
 
 MIT
