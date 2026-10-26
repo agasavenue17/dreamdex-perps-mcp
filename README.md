@@ -286,6 +286,16 @@ Posts about this build, tagging @DreamDEXSomnia:
    Video: `sketches/screenshots/demo-agent-ui-live-2026-10-26.mp4`.
    https://x.com/agasavenue17/status/2114585546026819596
 
+## Credits
+
+The agent team pattern in this project (analysts, Bull vs Bear debate,
+Trader, Risk Team, Portfolio Manager) is inspired by
+[TradingAgents](https://github.com/TauricResearch/TradingAgents) by
+TauricResearch, licensed Apache 2.0. The pattern was adapted here for
+dreamDEX perps; the implementation in this repo is original TypeScript
+and no TradingAgents code is included. Market data and execution use the
+official `@somnia-chain/markets-sdk`.
+
 ## License
 
 MIT
